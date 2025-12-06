@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pdfplumber
+requests
+google-generativeai
+python-dotenv
+sqlalchemy
+psycopg2-binary

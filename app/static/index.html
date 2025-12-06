@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreightFlow Tariff Ingestor</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"],
+        select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        input[type="text"] {
+            width: 400px;
+        }
+
+        select {
+            width: 150px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #results {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        #json-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-height: 80%;
+            overflow: auto;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 1.5em;
+        }
+
+        pre {
+            background: #f4f4f9;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            background-color: #ecf0f1;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .progress {
+            background: #ecf0f1;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            background: #3498db;
+            height: 20px;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>FreightFlow Tariff Ingestor</h1>
+
+        <div class="input-group">
+            <input type="text" id="pdfUrl"
+                value="https://www.ups.com/assets/resources/webcontent/en_GB/tariff-guide-in.pdf"
+                placeholder="Enter PDF URL">
+            <select id="zoneSelect">
+                <option value="all">All Zones (paginated)</option>
+                <option value="1">Zone 1</option>
+                <option value="2">Zone 2</option>
+                <option value="3">Zone 3</option>
+                <option value="4">Zone 4</option>
+                <option value="5">Zone 5</option>
+                <option value="6">Zone 6</option>
+                <option value="7">Zone 7</option>
+                <option value="8">Zone 8</option>
+                <option value="9">Zone 9</option>
+                <option value="10">Zone 10</option>
+            </select>
+            <button onclick="ingestTariff()" id="ingestBtn">Ingest PDF</button>
+            <button onclick="extractFull()" id="extractBtn" style="background-color: #27ae60;">Extract Full
+                (Cached)</button>
+            <button onclick="downloadJSON()" id="downloadBtn" style="background-color: #e67e22;">Download JSON</button>
+        </div>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            <div class="progress-text" id="progressText">Processing...</div>
+        </div>
+
+        <div class="loader" id="loader"></div>
+
+        <div id="results">
+            <div style="text-align: right; margin-bottom: 10px;">
+                <button onclick="showJson()" style="background-color: #27ae60;">View JSON</button>
+            </div>
+
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="switchTab('countries')">Country-Zone Mapping</button>
+                <button class="tab-button" onclick="switchTab('rates')">Zone Rates</button>
+            </div>
+
+            <div id="countries-tab" class="tab-content active">
+                <div class="section">
+                    <h2>Country-Zone Mapping</h2>
+                    <div class="table-container">
+                        <table id="countries-table">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th>Country Code</th>
+                                    <th>Service</th>
+                                    <th>Export Zone</th>
+                                    <th>Import Zone</th>
+                                </tr>
+                            </thead>
+                            <tbody id="countries-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="rates-tab" class="tab-content">
+                <div id="rates-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="json-modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeJson()">&times;</span>
+            <h3>Raw JSON Data</h3>
+            <pre id="json-content"></pre>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let allCountries = [];
+
+        function downloadJSON() {
+            window.location.href = '/api/v1/download_json';
+        }
+
+        async function extractFull() {
+            const url = document.getElementById('pdfUrl').value;
+            const btn = document.getElementById('extractBtn');
+            const loader = document.getElementById('loader');
+            const results = document.getElementById('results');
+
+            if (!url) {
+                alert("Please enter a URL");
+                return;
+            }
+
+            btn.disabled = true;
+            loader.style.display = 'block';
+            results.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/v1/extract_full', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: url, force_refresh: false })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Failed to extract');
+                }
+
+                const result = await response.json();
+                alert(result.message + "\n\nSource: " + result.source);
+
+                // Display the simplified data
+                currentData = result.data;
+                renderSimplifiedResults(result.data);
+                results.style.display = 'block';
+
+                // Offer to download JSON
+                if (result.json_file) {
+                    const download = confirm("Data saved to ups_data.json. Download now?");
+                    if (download) {
+                        window.location.href = '/api/v1/download_json';
+                    }
+                }
+
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+            }
+        }
+
+        function renderSimplifiedResults(data) {
+            // Render countries
+            const tbody = document.getElementById('countries-tbody');
+            tbody.innerHTML = '';
+
+            if (data.countries && data.countries.length > 0) {
+                data.countries.forEach(country => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td>${country.name}</td>
+                    <td>${country.code}</td>
+                    <td>All Services</td>
+                    <td>${country.export_zone || 'N/A'}</td>
+                    <td>${country.import_zone || 'N/A'}</td>
+                `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            // Render prices
+            const container = document.getElementById('rates-container');
+            container.innerHTML = '';
+
+            if (data.prices) {
+                for (const [service, serviceData] of Object.entries(data.prices)) {
+                    const section = document.createElement('div');
+                    section.className = 'section';
+
+                    let html = `<h2>${service.replace('_', ' ').toUpperCase()}</h2>`;
+
+                    // Envelopes
+                    if (serviceData.envelopes && serviceData.envelopes.length > 0) {
+                        html += '<h3>Envelopes</h3><table><thead><tr><th>Type</th>';
+                        for (let i = 1; i <= 9; i++) {
+                            html += `<th>Zone ${i}</th>`;
+                        }
+                        html += '</tr></thead><tbody>';
+
+                        serviceData.envelopes.forEach(item => {
+                            html += `<tr><td>${item.weight}</td>`;
+                            for (let i = 1; i <= 9; i++) {
+                                html += `<td>${item.zones['zone_' + i] || 'N/A'}</td>`;
+                            }
+                            html += '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    // Documents
+                    if (serviceData.documents && serviceData.documents.length > 0) {
+                        html += '<h3>Documents</h3><table><thead><tr><th>Weight</th>';
+                        for (let i = 1; i <= 9; i++) {
+                            html += `<th>Zone ${i}</th>`;
+                        }
+                        html += '</tr></thead><tbody>';
+
+                        serviceData.documents.forEach(item => {
+                            html += `<tr><td>${item.weight}</td>`;
+                            for (let i = 1; i <= 9; i++) {
+                                html += `<td>${item.zones['zone_' + i] || 'N/A'}</td>`;
+                            }
+                            html += '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    // Non-Documents
+                    if (serviceData.non_documents && serviceData.non_documents.length > 0) {
+                        html += '<h3>Non-Documents</h3><table><thead><tr><th>Weight</th><th>Type</th>';
+                        for (let i = 1; i <= 9; i++) {
+                            html += `<th>Zone ${i}</th>`;
+                        }
+                        html += '</tr></thead><tbody>';
+
+                        serviceData.non_documents.forEach(item => {
+                            html += `<tr><td>${item.weight}</td><td>${item.pricing_type || 'fixed'}</td>`;
+                            for (let i = 1; i <= 9; i++) {
+                                html += `<td>${item.zones['zone_' + i] || 'N/A'}</td>`;
+                            }
+                            html += '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    section.innerHTML = html;
+                    container.appendChild(section);
+                }
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tab === 'countries') {
+                document.querySelector('.tab-button:nth-child(1)').classList.add('active');
+                document.getElementById('countries-tab').classList.add('active');
+            } else {
+                document.querySelector('.tab-button:nth-child(2)').classList.add('active');
+                document.getElementById('rates-tab').classList.add('active');
+            }
+        }
+
+        async function ingestTariff() {
+            const url = document.getElementById('pdfUrl').value;
+            const zone = document.getElementById('zoneSelect').value;
+            const btn = document.getElementById('ingestBtn');
+            const loader = document.getElementById('loader');
+            const progress = document.getElementById('progress');
+            const results = document.getElementById('results');
+
+            if (!url) {
+                alert("Please enter a URL");
+                return;
+            }
+
+            btn.disabled = true;
+            results.style.display = 'none';
+            allCountries = [];
+
+            if (zone === 'all') {
+                // Fetch all zones
+                progress.style.display = 'block';
+                loader.style.display = 'none';
+
+                const zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+                let zoneRates = {};
+
+                for (let i = 0; i < zones.length; i++) {
+                    const z = zones[i];
+                    updateProgress((i / zones.length) * 100, `Processing Zone ${z}...`);
+
+                    try {
+                        const data = await fetchZone(url, z);
+                        if (data.countries) {
+                            allCountries = allCountries.concat(data.countries);
+                        }
+                        if (data.zone_rates) {
+                            Object.assign(zoneRates, data.zone_rates);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching zone ${z}:`, error);
+                    }
+                }
+
+                updateProgress(100, 'Complete!');
+                currentData = {
+                    provider: 'UPS',
+                    countries: allCountries,
+                    zone_rates: zoneRates
+                };
+
+                renderResults(currentData);
+                results.style.display = 'block';
+                progress.style.display = 'none';
+            } else {
+                // Fetch single zone
+                loader.style.display = 'block';
+                try {
+                    currentData = await fetchZone(url, zone);
+                    renderResults(currentData);
+                    results.style.display = 'block';
+                } catch (error) {
+                    alert("Error: " + error.message);
+                }
+                loader.style.display = 'none';
+            }
+
+            btn.disabled = false;
+        }
+
+        async function fetchZone(url, zone) {
+            const response = await fetch('/api/v1/ingest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url, zone: zone })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to ingest');
+            }
+
+            return await response.json();
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function renderResults(data) {
+            renderCountries(data.countries || []);
+            renderRates(data.zone_rates || {});
+        }
+
+        function renderCountries(countries) {
+            const tbody = document.getElementById('countries-tbody');
+            tbody.innerHTML = '';
+
+            if (countries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No country data found.</td></tr>';
+                return;
+            }
+
+            countries.forEach(country => {
+                if (country.service_zones && country.service_zones.length > 0) {
+                    country.service_zones.forEach((service, idx) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td>${idx === 0 ? country.country_name : ''}</td>
+                        <td>${idx === 0 ? country.country_code : ''}</td>
+                        <td>${service.service_name}</td>
+                        <td>${service.export_zone || 'N/A'}</td>
+                        <td>${service.import_zone || 'N/A'}</td>
+                    `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td>${country.country_name}</td>
+                    <td>${country.country_code}</td>
+                    <td colspan="3">No service zones found</td>
+                `;
+                    tbody.appendChild(row);
+                }
+            });
+        }
+
+        function renderRates(zoneRates) {
+            const container = document.getElementById('rates-container');
+            container.innerHTML = '';
+
+            if (Object.keys(zoneRates).length === 0) {
+                container.innerHTML = '<p>No rate data found.</p>';
+                return;
+            }
+
+            for (const [serviceName, zones] of Object.entries(zoneRates)) {
+                const section = document.createElement('div');
+                section.className = 'section';
+
+                let html = `<h2>${serviceName}</h2>`;
+
+                zones.forEach(zone => {
+                    html += `<h3>Zone ${zone.zone_id}</h3>`;
+                    html += `<table>
+                    <thead>
+                        <tr>
+                            <th>Weight</th>
+                            <th>Price (${zone.rates[0]?.currency || 'INR'})</th>
+                            <th>Item Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${zone.rates.map(rate => `
+                            <tr>
+                                <td>${rate.weight}</td>
+                                <td>${rate.price}</td>
+                                <td>${rate.item_type || 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+                });
+
+                section.innerHTML = html;
+                container.appendChild(section);
+            }
+        }
+
+        function showJson() {
+            if (!currentData) return;
+            document.getElementById('json-content').textContent = JSON.stringify(currentData, null, 2);
+            document.getElementById('json-modal').style.display = 'flex';
+        }
+
+        function closeJson() {
+            document.getElementById('json-modal').style.display = 'none';
+        }
+    </script>
+
+</body>
+
+</html>
