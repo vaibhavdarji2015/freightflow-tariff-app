@@ -56,8 +56,19 @@ async def extract_full_tariff(request: SimpleRequest):
         pdf_content = pdf_service.download_pdf(request.url)
         text_content = pdf_service.extract_text_from_pdf(pdf_content)
         
-        # Extract with AI (chunked approach - countries first, then each service)
-        extracted_data = ai_service_simple.extract_full_tariff_chunked(text_content)
+        # Try AI extraction first, fall back to manual if quota exhausted
+        try:
+            extracted_data = ai_service_simple.extract_full_tariff_chunked(text_content)
+            extraction_method = "AI"
+        except Exception as e:
+            # If AI fails (quota exhausted), use manual extraction
+            if "429" in str(e) or "quota" in str(e).lower():
+                print("AI quota exhausted, using manual extraction...")
+                from app.services import manual_extractor
+                extracted_data = manual_extractor.extract_full_tariff_manual(text_content)
+                extraction_method = "Manual (AI quota exhausted)"
+            else:
+                raise e
         
         # Save to database
         db_service.save_to_database(request.url, extracted_data)
@@ -68,9 +79,10 @@ async def extract_full_tariff(request: SimpleRequest):
         return {
             "status": "success",
             "source": "fresh_extraction",
+            "extraction_method": extraction_method,
             "data": extracted_data,
             "json_file": json_file,
-            "message": "Data extracted using chunked approach, saved to database and exported to ups_data.json"
+            "message": f"Data extracted successfully using {extraction_method}"
         }
         
     except HTTPException as e:
