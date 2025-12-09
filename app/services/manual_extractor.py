@@ -369,7 +369,7 @@ def extract_all_services_manual(text: str) -> Dict[str, Any]:
             text,
             "Expedited",
             "UPS Worldwide Expedited®",
-            has_envelope=False  # Expedited has NO envelopes
+            has_envelope=True  # Expedited DOES have envelopes
         ),
         "express_freight": extract_freight_rates(
             text,
@@ -392,3 +392,64 @@ def extract_all_services_manual(text: str) -> Dict[str, Any]:
         print(f"  {service}: {env} env, {doc} docs, {non_doc} non-docs")
     
     return services
+
+
+def extract_full_tariff_manual(text: str) -> Dict[str, Any]:
+    """
+    Extract complete tariff data (countries + prices) using manual regex patterns.
+    This is the main entry point that matches the AI extraction format.
+    """
+    print("=== Manual Tariff Extraction (No AI Quota Needed) ===")
+    
+    # Extract countries using regex
+    countries = extract_countries_manual(text)
+    
+    # Extract all service prices
+    prices = extract_all_services_manual(text)
+    
+    return {
+        "countries": countries,
+        "prices": prices
+    }
+
+
+def extract_countries_manual(text: str) -> List[Dict[str, Any]]:
+    """Extract country-zone mappings using regex patterns"""
+    print("Extracting countries manually...")
+    
+    countries = []
+    
+    # Find the country-zone mapping table
+    # Pattern: Country name followed by zones
+    country_pattern = r'([A-Z][A-Za-z\s\(\)]+?)\s+(\d+)\s+(\d+)'
+    
+    # Look for the section with country mappings
+    # Typically starts after "Country" header and before rate tables
+    country_section_match = re.search(
+        r'Country.*?Export Zone.*?Import Zone(.*?)(?:Export -|UPS Worldwide)',
+        text,
+        re.DOTALL | re.IGNORECASE
+    )
+    
+    if country_section_match:
+        country_text = country_section_match.group(1)
+        matches = re.findall(country_pattern, country_text)
+        
+        for match in matches:
+            country_name = match[0].strip()
+            export_zone = int(match[1])
+            import_zone = int(match[2])
+            
+            # Generate country code (first 2 letters uppercase)
+            code = country_name[:2].upper()
+            
+            countries.append({
+                "name": country_name,
+                "code": code,
+                "export_zone": export_zone,
+                "import_zone": import_zone
+            })
+    
+    print(f"  ✓ Extracted {len(countries)} countries")
+    return countries
+
