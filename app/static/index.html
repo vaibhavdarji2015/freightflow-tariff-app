@@ -245,8 +245,9 @@
                 <option value="10">Zone 10</option>
             </select>
             <button onclick="ingestTariff()" id="ingestBtn">Ingest PDF</button>
-            <button onclick="extractFull()" id="extractBtn" style="background-color: #27ae60;">Extract Full
+            <button onclick="extractFull(false)" id="extractBtn" style="background-color: #27ae60;">Extract Full
                 (Cached)</button>
+            <button onclick="extractFull(true)" id="forceRefreshBtn" style="background-color: #e74c3c;">Force Refresh</button>
             <button onclick="downloadJSON()" id="downloadBtn" style="background-color: #e67e22;">Download JSON</button>
         </div>
 
@@ -309,9 +310,9 @@
             window.location.href = '/api/v1/download_json';
         }
 
-        async function extractFull() {
+        async function extractFull(forceRefresh = false) {
             const url = document.getElementById('pdfUrl').value;
-            const btn = document.getElementById('extractBtn');
+            const btn = forceRefresh ? document.getElementById('forceRefreshBtn') : document.getElementById('extractBtn');
             const loader = document.getElementById('loader');
             const results = document.getElementById('results');
 
@@ -330,7 +331,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ url: url, force_refresh: false })
+                    body: JSON.stringify({ url: url, force_refresh: forceRefresh })
                 });
 
                 if (!response.ok) {
